@@ -1,0 +1,84 @@
+#!/usr/bin/env python
+import sys,urllib,time
+v=1.0
+def getlocal():
+	with open("/usr/share/ieee-data/oui.txt","r") as page:
+		db=page.read()
+		page.close()
+	return db
+def getnet():
+	page=urllib.urlopen("http://standards-oui.ieee.org/oui.txt")
+	db=page.read()
+	page.close()
+	return db
+def getdb():
+	try:
+		db=getlocal()
+	except:
+		db=getnet()
+	sectors=db.split("\n\r\n")[1:]
+	db=[]
+	for sector in sectors:
+		sector=sector.replace("\r","")
+		oui,org=sector.split("\n")[0].split("\t\t")
+		oui=oui.split(" ")[0]
+		orgid,orgext=sector.split("\n")[1].split("\t\t")
+		orgid=orgid.split(" ")[0]
+		addr=sector.replace("\t","").split("\n")[2:]
+		db.append([oui,org,orgid,orgext,addr])
+	return db
+def updb():
+	try:
+		with open("/usr/share/ieee-data/oui.txt","r") as page:
+			old=page.read()
+			page.close()
+	except:
+		old=""
+	with open("/usr/share/ieee-data/oui.txt","w+") as page:
+		db=getnet()
+		page.write(db)
+		page.close()
+	if old!=db:
+		return 0
+	else:
+		return 1
+def help():
+	print("Usage: macinfo 00:00:00|00-00-00|000000\t\tSearch MAC\n       macinfo -u\t\t\t\tUpdate DB (root required)")
+def elapsed(start):
+	elap=str(time.time()-start).split(".")
+	if len(elap)>1:
+		if len(elap[1])>0:
+			elap=elap[0]+"."+elap[1][0]
+		else:
+			elap=elap[0]
+	else:
+		elap=elap[0]
+	return elap
+if len(sys.argv)==2:
+	print("# MacInfo v%s #\n"%v)
+	start=time.time()
+	if sys.argv[1].startswith("-"):
+		if sys.argv[1]=="-u":
+			try:
+				update=updb()
+				if update==0:
+					print("Updated in %ss."%elapsed(start))
+				else:
+					print("Already up to date. Checked in %ss."%elapsed(start))
+			except Exception as e:
+				print(e)
+		else:
+			help()
+	else:
+		mac=sys.argv[1].replace(":","").replace("-","").upper()
+		if len(mac)>6:
+			mac=mac[:6]
+		db=getdb()
+		res=0
+		for info in db:
+			if mac in info[0] or mac in info[2]:
+				print info[0]+"\n"+info[1]+"\n"+"\n".join(info[4])+"\n"
+				res+=1
+		print("%s results in %ss."%(res,elapsed(start)))
+else:
+	help()
